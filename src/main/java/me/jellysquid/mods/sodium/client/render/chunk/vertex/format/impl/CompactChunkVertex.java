@@ -5,6 +5,7 @@ import me.jellysquid.mods.sodium.client.gl.attribute.GlVertexFormat;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkMeshAttribute;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexEncoder;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexType;
+import net.minecraft.util.Mth;
 import org.lwjgl.system.MemoryUtil;
 
 public class CompactChunkVertex implements ChunkVertexType {
@@ -62,7 +63,7 @@ public class CompactChunkVertex implements ChunkVertexType {
             MemoryUtil.memPutShort(ptr + 12, encodeTexture(vertex.u));
             MemoryUtil.memPutShort(ptr + 14, encodeTexture(vertex.v));
 
-            MemoryUtil.memPutInt(ptr + 16, vertex.light);
+            MemoryUtil.memPutInt(ptr + 16, encodeLight(vertex.light));
 
             return ptr + STRIDE;
         };
@@ -78,5 +79,15 @@ public class CompactChunkVertex implements ChunkVertexType {
 
     private static short encodeTexture(float value) {
         return (short) (Math.round(value * TEXTURE_MAX_VALUE) & 0xFFFF);
+    }
+
+    /**
+     * Encodes light values with clamping to avoid edge-case interpolation issues on some GPUs.
+     * Values are clamped to 8-248 range instead of 0-255.
+     */
+    private static int encodeLight(int light) {
+        int sky = Mth.clamp(((light >>> 16) & 0xFF) + 8, 8, 248);
+        int block = Mth.clamp((light & 0xFF) + 8, 8, 248);
+        return (block << 0) | (sky << 8);
     }
 }

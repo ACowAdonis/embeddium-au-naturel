@@ -24,6 +24,43 @@ public class OcclusionCuller {
 
     private boolean isCameraInUnloadedSection;
 
+    // Angle-based occlusion masks - prevent traversing through faces perpendicular to view direction
+    private static final long UP_DOWN_OCCLUDED = (1L << VisibilityEncoding.bit(GraphDirection.DOWN, GraphDirection.UP))
+            | (1L << VisibilityEncoding.bit(GraphDirection.UP, GraphDirection.DOWN));
+    private static final long NORTH_SOUTH_OCCLUDED = (1L << VisibilityEncoding.bit(GraphDirection.NORTH, GraphDirection.SOUTH))
+            | (1L << VisibilityEncoding.bit(GraphDirection.SOUTH, GraphDirection.NORTH));
+    private static final long WEST_EAST_OCCLUDED = (1L << VisibilityEncoding.bit(GraphDirection.WEST, GraphDirection.EAST))
+            | (1L << VisibilityEncoding.bit(GraphDirection.EAST, GraphDirection.WEST));
+
+    /**
+     * Computes a visibility mask that occludes traversal through faces perpendicular to the view direction.
+     * When viewing a section from an angle, you can't see through faces that are nearly edge-on.
+     */
+    private static long getAngleVisibilityMask(Viewport viewport, RenderSection section) {
+        var transform = viewport.getTransform();
+        var dx = Math.abs(transform.x - section.getCenterX());
+        var dy = Math.abs(transform.y - section.getCenterY());
+        var dz = Math.abs(transform.z - section.getCenterZ());
+
+        var angleOcclusionMask = 0L;
+
+        // If horizontal distance dominates, can't see through top/bottom
+        if (dx > dy || dz > dy) {
+            angleOcclusionMask |= UP_DOWN_OCCLUDED;
+        }
+        // If X or Y distance dominates, can't see through north/south faces
+        if (dx > dz || dy > dz) {
+            angleOcclusionMask |= NORTH_SOUTH_OCCLUDED;
+        }
+        // If Y or Z distance dominates, can't see through west/east faces
+        if (dy > dx || dz > dx) {
+            angleOcclusionMask |= WEST_EAST_OCCLUDED;
+        }
+
+        // Return inverted mask (1s where visibility IS allowed)
+        return ~angleOcclusionMask;
+    }
+
     public OcclusionCuller(Long2ReferenceMap<RenderSection> sections, Level world) {
         this.sections = sections;
         this.world = world;
@@ -46,6 +83,40 @@ public class OcclusionCuller {
 
         while (queues.flip()) {
             processQueue(visitor, viewport, searchDistance, useOcclusionCulling, frame, queues.read(), queues.write());
+        }
+
+        this.addNearbySections(visitor, viewport, frame);
+    }
+
+    /**
+     * Visits sections near the camera origin that may not have been reached by the BFS traversal
+     * but have bounding boxes that intersect with the frustum. This handles large models that
+     * extend outside the 16x16x16 base volume of a section.
+     */
+    private void addNearbySections(Visitor visitor, Viewport viewport, int frame) {
+        var origin = viewport.getChunkCoord();
+        var originX = origin.getX();
+        var originY = origin.getY();
+        var originZ = origin.getZ();
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0) {
+                        continue;
+                    }
+
+                    var section = this.getRenderSection(originX + dx, originY + dy, originZ + dz);
+
+                    // Additionally render not yet visited but visible sections
+                    if (section != null && section.getLastVisibleFrame() != frame && isWithinNearbySectionFrustum(viewport, section)) {
+                        // Reset state on first visit, but don't enqueue for further traversal
+                        section.setLastVisibleFrame(frame);
+
+                        visitor.visit(section, true);
+                    }
+                }
+            }
         }
     }
 
@@ -71,10 +142,16 @@ public class OcclusionCuller {
 
             {
                 if (useOcclusionCulling) {
+                    var sectionVisibilityData = section.getVisibilityData();
+
+                    // Occlude paths through the section if it's being viewed at an angle where
+                    // the other side can't possibly be seen
+                    sectionVisibilityData &= getAngleVisibilityMask(viewport, section);
+
                     // When using occlusion culling, we can only traverse into neighbors for which there is a path of
                     // visibility through this chunk. This is determined by taking all the incoming paths to this chunk and
                     // creating a union of the outgoing paths from those.
-                    connections = VisibilityEncoding.getConnections(section.getVisibilityData(), section.getIncomingDirections());
+                    connections = VisibilityEncoding.getConnections(sectionVisibilityData, section.getIncomingDirections());
                 } else {
                     // Not using any occlusion culling, so traversing in any direction is legal.
                     connections = GraphDirectionSet.ALL;
@@ -168,9 +245,10 @@ public class OcclusionCuller {
 
         // coordinates of the point to compare (in view space)
         // this is the closest point within the bounding box to the center (0, 0, 0)
-        float dx = nearestToZero(ox, ox + 16) - camera.fracX;
-        float dy = nearestToZero(oy, oy + 16) - camera.fracY;
-        float dz = nearestToZero(oz, oz + 16) - camera.fracZ;
+        // the bounding box is expanded by 1 block in each direction due to the maximum allowed size of block models
+        float dx = nearestToZero(ox - 1, ox + 17) - camera.fracX;
+        float dy = nearestToZero(oy - 1, oy + 17) - camera.fracY;
+        float dz = nearestToZero(oz - 1, oz + 17) - camera.fracZ;
 
         return DistanceFilterHolder.INSTANCE.isWithinDistance(dx, dy, dz, maxDistance);
     }
@@ -187,10 +265,23 @@ public class OcclusionCuller {
     // The bounding box of a chunk section must be large enough to contain all possible geometry within it. Block models
     // can extend outside a block volume by +/- 1.0 blocks on all axis. Additionally, we make use of a small epsilon
     // to deal with floating point imprecision during a frustum check (see GH#2132).
-    private static final float CHUNK_SECTION_SIZE = 8.0f /* chunk bounds */ + 1.0f /* maximum model extent */ + 0.125f /* epsilon */;
+    private static final float CHUNK_SECTION_RADIUS = 8.0f; // chunk bounds
+    private static final float CHUNK_SECTION_MARGIN = 1.0f /* maximum model extent */ + 0.125f /* epsilon */;
+    private static final float CHUNK_SECTION_SIZE = CHUNK_SECTION_RADIUS + CHUNK_SECTION_MARGIN;
+
+    // Larger bounding box for nearby sections that may have large models extending outside normal bounds
+    private static final float CHUNK_SECTION_SIZE_NEARBY = CHUNK_SECTION_RADIUS + 2.0f /* bigger model extent */ + 0.125f /* epsilon */;
 
     public static boolean isWithinFrustum(Viewport viewport, RenderSection section) {
         return viewport.isBoxVisible(section.getCenterX(), section.getCenterY(), section.getCenterZ(), CHUNK_SECTION_SIZE);
+    }
+
+    /**
+     * Frustum check with a larger bounding box for nearby sections that may have large models.
+     */
+    public static boolean isWithinNearbySectionFrustum(Viewport viewport, RenderSection section) {
+        return viewport.isBoxVisible(section.getCenterX(), section.getCenterY(), section.getCenterZ(),
+                CHUNK_SECTION_SIZE_NEARBY, CHUNK_SECTION_SIZE_NEARBY, CHUNK_SECTION_SIZE_NEARBY);
     }
 
     private void init(Visitor visitor,

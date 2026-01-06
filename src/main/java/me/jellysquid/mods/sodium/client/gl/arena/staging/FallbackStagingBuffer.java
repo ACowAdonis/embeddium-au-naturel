@@ -39,4 +39,10 @@ public class FallbackStagingBuffer implements StagingBuffer {
     public String toString() {
         return "Fallback";
     }
+
+    @Override
+    public long getUploadSizeLimit(long frameDuration) {
+        // No limit for fallback buffer since time-limiting takes care of it
+        return Long.MAX_VALUE;
+    }
 }

@@ -13,4 +13,12 @@ public interface StagingBuffer {
     void delete(CommandList commandList);
 
     void flip();
+
+    /**
+     * Returns the maximum number of bytes that should be uploaded per frame.
+     * This is used to prevent large uploads from causing frame stalls.
+     * @param frameDuration The duration of the previous frame in nanoseconds
+     * @return The maximum upload size in bytes
+     */
+    long getUploadSizeLimit(long frameDuration);
 }

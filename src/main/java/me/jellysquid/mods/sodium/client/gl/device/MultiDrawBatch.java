@@ -17,6 +17,7 @@ public final class MultiDrawBatch {
     private final int capacity;
 
     public int size;
+    public boolean isFilled;
 
     public MultiDrawBatch(int capacity) {
         this.pElementPointer = MemoryUtil.nmemAlignedAlloc(32, (long) capacity * Pointer.POINTER_SIZE);
@@ -38,6 +39,7 @@ public final class MultiDrawBatch {
 
     public void clear() {
         this.size = 0;
+        this.isFilled = false;
     }
 
     public void delete() {

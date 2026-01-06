@@ -35,6 +35,9 @@ public class ChunkRenderList {
 
         this.size = 0;
         this.lastVisibleFrame = frame;
+
+        // Invalidate cached draw command batches since the visible sections changed
+        this.region.clearAllCachedBatches();
     }
 
     public void add(RenderSection render) {

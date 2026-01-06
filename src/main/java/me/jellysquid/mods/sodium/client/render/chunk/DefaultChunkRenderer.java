@@ -29,8 +29,6 @@ import org.lwjgl.system.MemoryUtil;
 import java.util.Iterator;
 
 public class DefaultChunkRenderer extends ShaderChunkRenderer {
-    private final MultiDrawBatch batch;
-
     private final SharedQuadIndexBuffer sharedIndexBuffer;
 
     private final GlVertexAttributeBinding[] vertexAttributeBindings;
@@ -39,8 +37,6 @@ public class DefaultChunkRenderer extends ShaderChunkRenderer {
 
     public DefaultChunkRenderer(RenderDevice device, ChunkVertexType vertexType) {
         super(device, vertexType);
-
-        this.batch = new MultiDrawBatch((ModelQuadFacing.COUNT * RenderRegion.REGION_SIZE) + 1);
 
         try (CommandList commandList = device.createCommandList()) {
             this.sharedIndexBuffer = new SharedQuadIndexBuffer(commandList, SharedQuadIndexBuffer.IndexType.INTEGER);
@@ -77,22 +73,24 @@ public class DefaultChunkRenderer extends ShaderChunkRenderer {
                 continue;
             }
 
-            fillCommandBuffer(this.batch, region, storage, renderList, camera, renderPass, useBlockFaceCulling);
+            var batch = region.getCachedBatch(renderPass);
 
-            if (this.batch.isEmpty()) {
+            if (!batch.isFilled) {
+                fillCommandBuffer(batch, region, storage, renderList, camera, renderPass, useBlockFaceCulling);
+            }
+
+            if (batch.isEmpty()) {
                 continue;
             }
 
-
-
             if (!this.isIndexedPass) {
-                this.sharedIndexBuffer.ensureCapacity(commandList, this.batch.getIndexBufferSize());
+                this.sharedIndexBuffer.ensureCapacity(commandList, batch.getIndexBufferSize());
             }
 
             var tessellation = this.prepareTessellation(commandList, region);
 
             setModelMatrixUniforms(shader, region, camera);
-            executeDrawBatch(commandList, tessellation, this.batch);
+            executeDrawBatch(commandList, tessellation, batch);
         }
 
         super.end(renderPass);
@@ -142,6 +140,8 @@ public class DefaultChunkRenderer extends ShaderChunkRenderer {
                 addDrawCommands(batch, pMeshData, slices, indexPointerMask);
             }
         }
+
+        batch.isFilled = true;
     }
 
     @SuppressWarnings("IntegerMultiplicationImplicitCastToLong")
@@ -288,6 +288,5 @@ public class DefaultChunkRenderer extends ShaderChunkRenderer {
         super.delete(commandList);
 
         this.sharedIndexBuffer.delete(commandList);
-        this.batch.delete();
     }
 }

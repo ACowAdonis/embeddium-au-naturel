@@ -37,7 +37,10 @@ public class GlFence {
 
     public void sync(long timeout) {
         this.checkDisposed();
-        GL32C.glWaitSync(this.id, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, timeout);
+        // Use glClientWaitSync (CPU waits) instead of glWaitSync (GPU waits)
+        // This is correct for staging buffer synchronization where CPU needs to
+        // know when GPU is done with memory before reusing it
+        GL32C.glClientWaitSync(this.id, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, timeout);
     }
 
     public void delete() {

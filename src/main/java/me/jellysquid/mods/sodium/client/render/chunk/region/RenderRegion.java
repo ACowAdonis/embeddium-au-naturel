@@ -6,7 +6,9 @@ import me.jellysquid.mods.sodium.client.gl.arena.GlBufferArena;
 import me.jellysquid.mods.sodium.client.gl.arena.staging.StagingBuffer;
 import me.jellysquid.mods.sodium.client.gl.buffer.GlBuffer;
 import me.jellysquid.mods.sodium.client.gl.device.CommandList;
+import me.jellysquid.mods.sodium.client.gl.device.MultiDrawBatch;
 import me.jellysquid.mods.sodium.client.gl.tessellation.GlTessellation;
+import me.jellysquid.mods.sodium.client.model.quad.properties.ModelQuadFacing;
 import me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer;
 import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
 import me.jellysquid.mods.sodium.client.render.chunk.data.SectionRenderDataStorage;
@@ -50,6 +52,7 @@ public class RenderRegion {
     private int sectionCount;
 
     private final Map<TerrainRenderPass, SectionRenderDataStorage> sectionRenderData = new Reference2ReferenceOpenHashMap<>();
+    private final Map<TerrainRenderPass, MultiDrawBatch> cachedBatches = new Reference2ReferenceOpenHashMap<>();
     private DeviceResources resources;
 
     public RenderRegion(int x, int y, int z, StagingBuffer stagingBuffer) {
@@ -113,7 +116,35 @@ public class RenderRegion {
             this.resources = null;
         }
 
+        for (var batch : this.cachedBatches.values()) {
+            batch.delete();
+        }
+        this.cachedBatches.clear();
+
         Arrays.fill(this.sections, null);
+    }
+
+    /**
+     * Clears all cached draw command batches. Call when the render list changes.
+     */
+    public void clearAllCachedBatches() {
+        for (var batch : this.cachedBatches.values()) {
+            batch.clear();
+        }
+    }
+
+    /**
+     * Gets or creates a cached draw command batch for the given render pass.
+     */
+    public MultiDrawBatch getCachedBatch(TerrainRenderPass pass) {
+        MultiDrawBatch batch = this.cachedBatches.get(pass);
+        if (batch != null) {
+            return batch;
+        }
+
+        batch = new MultiDrawBatch((ModelQuadFacing.COUNT * RenderRegion.REGION_SIZE) + 1);
+        this.cachedBatches.put(pass, batch);
+        return batch;
     }
 
     public boolean isEmpty() {
