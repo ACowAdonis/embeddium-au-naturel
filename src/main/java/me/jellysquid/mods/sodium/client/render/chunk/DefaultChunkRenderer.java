@@ -25,6 +25,7 @@ import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkMeshForm
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexType;
 import me.jellysquid.mods.sodium.client.render.viewport.CameraTransform;
 import me.jellysquid.mods.sodium.client.util.BitwiseMath;
+import me.jellysquid.mods.sodium.client.util.UInt32;
 import org.lwjgl.system.MemoryUtil;
 import java.util.Iterator;
 
@@ -153,7 +154,7 @@ public class DefaultChunkRenderer extends ShaderChunkRenderer {
         int size = batch.size;
 
         for (int facing = 0; facing < ModelQuadFacing.COUNT; facing++) {
-            MemoryUtil.memPutInt(pBaseVertex + (size << 2), SectionRenderDataUnsafe.getVertexOffset(pMeshData, facing));
+            MemoryUtil.memPutInt(pBaseVertex + (size << 2), UInt32.uncheckedDowncast(SectionRenderDataUnsafe.getVertexOffset(pMeshData, facing)));
             MemoryUtil.memPutInt(pElementCount + (size << 2), SectionRenderDataUnsafe.getElementCount(pMeshData, facing));
             MemoryUtil.memPutAddress(pElementPointer + (size << 3), SectionRenderDataUnsafe.getIndexOffset(pMeshData, facing) & indexPointerMask);
 

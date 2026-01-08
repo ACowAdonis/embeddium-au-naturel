@@ -1,52 +1,49 @@
 package me.jellysquid.mods.sodium.client.gl.arena;
 
+import me.jellysquid.mods.sodium.client.util.UInt32;
+
 public class GlBufferSegment {
     private final GlBufferArena arena;
 
     private boolean free = false;
 
-    private int offset;
-    private int length;
+    private int offset; /* UInt32 */
+    private int length; /* UInt32 */
 
     private GlBufferSegment next;
     private GlBufferSegment prev;
 
-    public GlBufferSegment(GlBufferArena arena, int offset, int length) {
+    public GlBufferSegment(GlBufferArena arena, long offset, long length) {
         this.arena = arena;
-        this.offset = offset;
-        this.length = length;
+        this.offset = UInt32.downcast(offset);
+        this.length = UInt32.downcast(length);
     }
 
     public void delete() {
         this.arena.free(this);
     }
 
-    protected int getEnd() {
-        return this.offset + this.length;
+    /* UInt32 */
+    protected long getEnd() {
+        return this.getOffset() + this.getLength();
     }
 
-    public int getLength() {
-        return this.length;
+    /* UInt32 */
+    public long getLength() {
+        return UInt32.upcast(this.length);
     }
 
-    protected void setLength(int len) {
-        if (len <= 0) {
-            throw new IllegalArgumentException("len <= 0");
-        }
-
-        this.length = len;
+    protected void setLength(long len /* UInt32 */) {
+        this.length = UInt32.downcast(len);
     }
 
-    public int getOffset() {
-        return this.offset;
+    /* UInt32 */
+    public long getOffset() {
+        return UInt32.upcast(this.offset);
     }
 
-    protected void setOffset(int offset) {
-        if (offset < 0) {
-            throw new IllegalArgumentException("start < 0");
-        }
-
-        this.offset = offset;
+    protected void setOffset(long offset /* UInt32 */) {
+        this.offset = UInt32.downcast(offset);
     }
 
     protected void setFree(boolean free) {

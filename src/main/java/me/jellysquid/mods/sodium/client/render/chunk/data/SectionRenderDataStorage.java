@@ -36,8 +36,8 @@ public class SectionRenderDataStorage {
         var pMeshData = this.getDataPointer(localSectionIndex);
 
         int sliceMask = 0;
-        int vertexOffset = allocation.getOffset();
-        int indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
+        long vertexOffset = allocation.getOffset();
+        long indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
 
         for (int facingIndex = 0; facingIndex < ModelQuadFacing.COUNT; facingIndex++) {
             VertexRange vertexRange = ranges[facingIndex];
@@ -60,7 +60,7 @@ public class SectionRenderDataStorage {
             }
 
             vertexOffset += vertexCount;
-            indexOffset += indexCount * 4;
+            indexOffset += indexCount * 4L;
         }
 
         SectionRenderDataUnsafe.setSliceMask(pMeshData, sliceMask);
@@ -91,12 +91,12 @@ public class SectionRenderDataStorage {
 
         var pMeshData = this.getDataPointer(localSectionIndex);
 
-        int indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
+        long indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
 
         for (int facingIndex = 0; facingIndex < ModelQuadFacing.COUNT; facingIndex++) {
             SectionRenderDataUnsafe.setIndexOffset(pMeshData, facingIndex, indexOffset);
             int indexCount = SectionRenderDataUnsafe.getElementCount(pMeshData, facingIndex);
-            indexOffset += indexCount * 4;
+            indexOffset += indexCount * 4L;
         }
     }
 
@@ -115,8 +115,8 @@ public class SectionRenderDataStorage {
 
         var indexAllocation = this.indexAllocations[sectionIndex];
 
-        var vertexOffset = allocation.getOffset();
-        var indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
+        long vertexOffset = allocation.getOffset();
+        long indexOffset = indexAllocation != null ? indexAllocation.getOffset() * 4 : 0;
 
         var data = this.getDataPointer(sectionIndex);
 
@@ -124,9 +124,9 @@ public class SectionRenderDataStorage {
             SectionRenderDataUnsafe.setVertexOffset(data, facing, vertexOffset);
             SectionRenderDataUnsafe.setIndexOffset(data, facing, indexOffset);
 
-            var indexCount = SectionRenderDataUnsafe.getElementCount(data, facing);
+            int indexCount = SectionRenderDataUnsafe.getElementCount(data, facing);
             vertexOffset += (indexCount / 6) * 4; // convert elements back into vertices
-            indexOffset += indexCount * 4;
+            indexOffset += indexCount * 4L;
         }
     }
 

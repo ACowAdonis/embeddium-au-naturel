@@ -1,6 +1,6 @@
 package me.jellysquid.mods.sodium.client.render.chunk.data;
 
-import me.jellysquid.mods.sodium.client.model.quad.properties.ModelQuadFacing;
+import me.jellysquid.mods.sodium.client.util.UInt32;
 import org.lwjgl.system.MemoryUtil;
 
 // This code is a terrible hack to get around the fact that we are so incredibly memory bound, and that we
@@ -67,12 +67,13 @@ public class SectionRenderDataUnsafe {
         return MemoryUtil.memGetInt(ptr + OFFSET_SLICE_MASK);
     }
 
-    public static void setVertexOffset(long ptr, int facing, int value) {
-        MemoryUtil.memPutInt(ptr + facingOffset(facing) + 0L, value);
+    public static void setVertexOffset(long ptr, int facing, long value /* UInt32 */) {
+        MemoryUtil.memPutInt(ptr + facingOffset(facing) + 0L, UInt32.downcast(value));
     }
 
-    public static int getVertexOffset(long ptr, int facing) {
-        return MemoryUtil.memGetInt(ptr + facingOffset(facing) + 0L);
+    /* UInt32 */
+    public static long getVertexOffset(long ptr, int facing) {
+        return UInt32.upcast(MemoryUtil.memGetInt(ptr + facingOffset(facing) + 0L));
     }
 
     public static void setElementCount(long ptr, int facing, int value) {
@@ -83,11 +84,12 @@ public class SectionRenderDataUnsafe {
         return MemoryUtil.memGetInt(ptr + facingOffset(facing) + 4L);
     }
 
-    public static void setIndexOffset(long ptr, int facing, int value) {
-        MemoryUtil.memPutInt(ptr + facingOffset(facing) + 8L, value);
+    public static void setIndexOffset(long ptr, int facing, long value /* UInt32 */) {
+        MemoryUtil.memPutInt(ptr + facingOffset(facing) + 8L, UInt32.downcast(value));
     }
 
-    public static int getIndexOffset(long ptr, int facing) {
-        return MemoryUtil.memGetInt(ptr + facingOffset(facing) + 8L);
+    /* UInt32 */
+    public static long getIndexOffset(long ptr, int facing) {
+        return UInt32.upcast(MemoryUtil.memGetInt(ptr + facingOffset(facing) + 8L));
     }
 }

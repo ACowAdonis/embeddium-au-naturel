@@ -746,14 +746,14 @@ public class RenderSectionManager {
 
             var buffer = resources.getGeometryArena();
 
-            deviceUsed += buffer.getDeviceUsedMemoryL();
-            deviceAllocated += buffer.getDeviceAllocatedMemoryL();
+            deviceUsed += buffer.getDeviceUsedMemory();
+            deviceAllocated += buffer.getDeviceAllocatedMemory();
 
             var indexBuffer = resources.getIndexArena();
 
             if (indexBuffer != null) {
-                indexUsed += indexBuffer.getDeviceUsedMemoryL();
-                indexAllocated += indexBuffer.getDeviceAllocatedMemoryL();
+                indexUsed += indexBuffer.getDeviceUsedMemory();
+                indexAllocated += indexBuffer.getDeviceAllocatedMemory();
                 indexCount++;
             }
 
