@@ -4,12 +4,12 @@ import org.apache.commons.lang3.Validate;
 import org.jetbrains.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class ChunkJobQueue {
-    private final ConcurrentLinkedDeque<ChunkJob> jobs = new ConcurrentLinkedDeque<>();
+    private final PriorityBlockingQueue<ChunkJobPriority> jobs = new PriorityBlockingQueue<>();
 
     private final Semaphore semaphore = new Semaphore(0);
 
@@ -19,14 +19,10 @@ class ChunkJobQueue {
         return this.isRunning.get();
     }
 
-    public void add(ChunkJob job, boolean important) {
+    public void add(ChunkJobPriority jobPriority) {
         Validate.isTrue(this.isRunning(), "Queue is no longer running");
 
-        if (important) {
-            this.jobs.addFirst(job);
-        } else {
-            this.jobs.addLast(job);
-        }
+        this.jobs.add(jobPriority);
 
         this.semaphore.release(1);
     }
@@ -47,7 +43,19 @@ class ChunkJobQueue {
             return false;
         }
 
-        var success = this.jobs.remove(job);
+        // Find and remove the ChunkJobPriority wrapper containing this job
+        ChunkJobPriority toRemove = null;
+        for (ChunkJobPriority jobPriority : this.jobs) {
+            if (jobPriority.getJob() == job) {
+                toRemove = jobPriority;
+                break;
+            }
+        }
+
+        boolean success = false;
+        if (toRemove != null) {
+            success = this.jobs.remove(toRemove);
+        }
 
         if (!success) {
             // If we didn't manage to actually steal the task, then we need to release the permit which we did steal
@@ -59,7 +67,8 @@ class ChunkJobQueue {
 
     @Nullable
     private ChunkJob getNextTask() {
-        return this.jobs.poll();
+        ChunkJobPriority jobPriority = this.jobs.poll();
+        return jobPriority != null ? jobPriority.getJob() : null;
     }
 
 
@@ -69,10 +78,10 @@ class ChunkJobQueue {
         this.isRunning.set(false);
 
         while (this.semaphore.tryAcquire()) {
-            var task = this.jobs.poll();
+            var jobPriority = this.jobs.poll();
 
-            if (task != null) {
-                list.add(task);
+            if (jobPriority != null) {
+                list.add(jobPriority.getJob());
             }
         }
 

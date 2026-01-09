@@ -2,6 +2,7 @@ package me.jellysquid.mods.sodium.client.render.chunk.compile.executor;
 
 import me.jellysquid.mods.sodium.client.SodiumClientMod;
 import me.jellysquid.mods.sodium.client.compat.forge.ForgeBlockRenderer;
+import me.jellysquid.mods.sodium.client.render.chunk.ChunkUpdateType;
 import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildContext;
 import me.jellysquid.mods.sodium.client.render.chunk.compile.tasks.ChunkBuilderTask;
 import me.jellysquid.mods.sodium.client.render.chunk.vertex.format.ChunkVertexType;
@@ -112,8 +113,13 @@ public class ChunkBuilder {
         this.threads.clear();
     }
 
-    public <TASK extends ChunkBuilderTask<OUTPUT>, OUTPUT> ChunkJobTyped<TASK, OUTPUT> scheduleTask(TASK task, boolean important,
-                                                                                                    Consumer<ChunkJobResult<OUTPUT>> consumer)
+    public <TASK extends ChunkBuilderTask<OUTPUT>, OUTPUT> ChunkJobTyped<TASK, OUTPUT> scheduleTask(
+            TASK task,
+            ChunkUpdateType updateType,
+            int chunkX, int chunkY, int chunkZ,
+            double cameraX, double cameraY, double cameraZ,
+            double cameraForwardX, double cameraForwardY, double cameraForwardZ,
+            Consumer<ChunkJobResult<OUTPUT>> consumer)
     {
         Validate.notNull(task, "Task must be non-null");
 
@@ -122,8 +128,12 @@ public class ChunkBuilder {
         }
 
         var job = new ChunkJobTyped<>(task, consumer);
+        var jobPriority = new ChunkJobPriority(job, updateType,
+                chunkX, chunkY, chunkZ,
+                cameraX, cameraY, cameraZ,
+                cameraForwardX, cameraForwardY, cameraForwardZ);
 
-        this.queue.add(job, important);
+        this.queue.add(jobPriority);
 
         return job;
     }

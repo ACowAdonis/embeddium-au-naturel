@@ -95,6 +95,9 @@ public class RenderSectionManager {
 
     private @Nullable BlockPos lastCameraPosition;
     private Vec3 cameraPosition = Vec3.ZERO;
+    private double cameraForwardX = 0.0;
+    private double cameraForwardY = 0.0;
+    private double cameraForwardZ = 1.0;
 
     private final boolean translucencySorting;
 
@@ -137,6 +140,14 @@ public class RenderSectionManager {
     public void update(Camera camera, Viewport viewport, int frame, boolean spectator) {
         this.lastCameraPosition = camera.getBlockPosition();
         this.cameraPosition = camera.getPosition();
+
+        // Calculate camera forward direction from pitch and yaw
+        float pitch = (float) Math.toRadians(camera.getXRot());
+        float yaw = (float) Math.toRadians(camera.getYRot() + 90.0f); // +90 to match Minecraft's coordinate system
+        float cosPitch = (float) Math.cos(pitch);
+        this.cameraForwardX = Math.cos(yaw) * cosPitch;
+        this.cameraForwardY = -Math.sin(pitch);
+        this.cameraForwardZ = Math.sin(yaw) * cosPitch;
 
         this.createTerrainRenderList(camera, viewport, frame, spectator);
 
@@ -505,7 +516,13 @@ public class RenderSectionManager {
             }
 
             if (task != null) {
-                var job = this.builder.scheduleTask(task, type.isImportant(), collector::onJobFinished);
+                var job = this.builder.scheduleTask(
+                        task,
+                        type,
+                        section.getChunkX(), section.getChunkY(), section.getChunkZ(),
+                        this.cameraPosition.x, this.cameraPosition.y, this.cameraPosition.z,
+                        this.cameraForwardX, this.cameraForwardY, this.cameraForwardZ,
+                        collector::onJobFinished);
                 collector.addSubmittedJob(job);
 
                 section.setBuildCancellationToken(job);
